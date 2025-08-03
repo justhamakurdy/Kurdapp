@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>بەرنامەی تۆماری شەکرە</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f0f4f8;
+      margin: 0;
+      padding: 1rem;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 1rem;
+      border-radius: 1rem;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    label, select, input {
+      display: block;
+      width: 100%;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+    }
+    input, select {
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 0.5rem;
+    }
+    .btn {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 0.8rem;
+      width: 100%;
+      border-radius: 0.8rem;
+      font-size: 1.1rem;
+      margin-top: 0.5rem;
+      transition: all 0.2s ease-in-out;
+      cursor: pointer;
+    }
+    .btn:active {
+      transform: scale(0.97);
+      opacity: 0.85;
+    }
+    .btn.delete-all {
+      background-color: #e74c3c;
+    }
+    .records {
+      margin-top: 1rem;
+    }
+    .record {
+      padding: 0.7rem;
+      border-bottom: 1px solid #ddd;
+      font-size: 0.95rem;
+      position: relative;
+    }
+    .record span {
+      display: block;
+    }
+    .low { color: orange; }
+    .prediabetes { color: #d35400; }
+    .normal { color: green; }
+    .high { color: red; }
+    .delete-single {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.2rem 0.5rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>تۆماری شەکرەی خوێن</h1>
+
+    <label>شەکرەت هەیە؟:</label>
+    <select id="personType">
+      <option value="diabetic">بەڵێ</option>
+      <option value="healthy">نەخێر</option>
+    </select>
+
+    <label>بە(mg/dL)بنووسه:</label>
+    <input type="number" id="sugar" placeholder="نموونە: 110" />
+
+    <label>دۆخ:</label>
+    <select id="type">
+      <option value="fasting">بەڕۆژووبوون</option>
+      <option value="postmeal">دووکاتژمێر دوای نان</option>
+    </select>
+
+    <button class="btn" onclick="saveReading()">💾 هەڵگردن</button>
+    <button class="btn delete-all" onclick="clearAll()">🗑️ سڕینەوەی هەموو تۆمارەکان</button>
+
+    <div class="records" id="records"></div>
+  </div>
+
+  <script>
+    const sugarInput = document.getElementById("sugar");
+    const typeInput = document.getElementById("type");
+    const personTypeInput = document.getElementById("personType");
+    const recordsDiv = document.getElementById("records");
+
+    function getClassification(value, type, personType) {
+      value = parseInt(value);
+      let result = '';
+
+      if (personType === "healthy") {
+        if (type === "fasting") {
+          if (value < 70) result = "low";
+          else if (value <= 99) result = "normal"; // دمجنا healthy مع normal
+          else if (value <= 125) result = "prediabetes";
+          else result = "high";
+        } else {
+          if (value < 70) result = "low";
+          else if (value < 140) result = "normal"; // دمجنا healthy مع normal
+          else if (value <= 199) result = "prediabetes";
+          else result = "high";
+        }
+      } else {
+        if (type === "fasting") {
+          if (value < 80) result = "low";
+          else if (value <= 130) result = "normal";
+          else result = "high";
+        } else {
+          if (value < 80) result = "low";
+          else if (value <= 180) result = "normal";
+          else result = "high";
+        }
+      }
+
+      return result;
+    }
+
+    function saveReading() {
+      const value = sugarInput.value.trim();
+      const type = typeInput.value;
+      const personType = personTypeInput.value;
+
+      if (!value) return alert("تکایه ڕێژەکە بنووسە");
+      if (value < 20 || value > 600) return alert("تکایه ڕێژەکە لەنێوان 20 و 600 بنووسه");
+
+      const date = new Date().toLocaleString("ar-EG");
+      const classification = getClassification(value, type, personType);
+
+      const record = {
+        value,
+        type: type === "fasting" ? "بەڕۆژووبوون" : "دووکاتژمێر دوای نان",
+        personType: personType === "healthy" ? "شەکرەی نییە" : "شەکرەی هەیە",
+        date,
+        classification
+      };
+
+      let readings = JSON.parse(localStorage.getItem("sugarReadings")) || [];
+      readings.push(record);
+      localStorage.setItem("sugarReadings", JSON.stringify(readings));
+
+      sugarInput.value = "";
+      showReadings();
+    }
+
+    function showReadings() {
+      const readings = JSON.parse(localStorage.getItem("sugarReadings")) || [];
+      recordsDiv.innerHTML = "";
+
+      readings.reverse().forEach((r, i) => {
+        const div = document.createElement("div");
+        // وضعنا اللون بناءً على التصنيف
+        div.className = "record " + r.classification;
+        div.innerHTML = `
+          <span><strong>${r.value} mg/dL</strong> - ${r.type}</span>
+          <span>👤 ${r.personType}</span>
+          <span>📅 ${r.date}</span>
+          <span> ${
+            r.classification === "low"
+              ? "🟠 شەکرەت نزمە"
+              : r.classification === "normal"
+              ? "🟢 شەکرەت ئاساییە"
+              : r.classification === "prediabetes"
+              ? "⚠️ پێش شەکرە"
+              : "🔴 شەکرەت بەرزە"
+          }</span>
+          <button class="delete-single" onclick="deleteReading(${readings.length - 1 - i})">سڕینەوە</button>
+        `;
+        recordsDiv.appendChild(div);
+      });
+    }
+
+    function deleteReading(index) {
+      let readings = JSON.parse(localStorage.getItem("sugarReadings")) || [];
+      readings.splice(index, 1);
+      localStorage.setItem("sugarReadings", JSON.stringify(readings));
+      showReadings();
+    }
+
+    function clearAll() {
+      if (confirm("ئایه تۆ دڵنیایی لەسڕینەوەی تەواوی تۆمارەکان؟")) {
+        localStorage.removeItem("sugarReadings");
+        showReadings();
+      }
+    }
+
+    showReadings();
+  </script>
+</body>
+</html>
